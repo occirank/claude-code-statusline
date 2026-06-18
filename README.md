@@ -138,6 +138,11 @@ N'ajoute **que** le bloc `statusLine` dans **ton** `settings.json`. Ne copie **j
 - Le cache git et le timer écrivent de petits fichiers dans le dossier temporaire (`/tmp` ou `%TEMP%`), nettoyés au redémarrage.
 - Champs lus depuis le JSON fourni par Claude Code sur stdin (modèle, contexte, coût, rate limits, worktree, PR, etc.).
 
+## Dépannage (Windows)
+
+- **Emojis en `??` ou `?`, point médian `·` en `�`** : utilise la dernière version de `statusline.ps1` (elle force la sortie en UTF-8) et lance Claude Code dans **Windows Terminal**. L'ancienne console `conhost.exe` peut ne pas afficher les emojis, même avec un encodage correct.
+- **Rien ne s'affiche** : vérifie le chemin absolu dans `settings.json` et que `pwsh` (ou `powershell`) est bien dans le PATH.
+
 ## Licence
 
 MIT.

@@ -8,7 +8,18 @@
 # =============================================================================
 
 $ErrorActionPreference = 'SilentlyContinue'
-$raw = [Console]::In.ReadToEnd()
+
+# Forcer l'UTF-8 (sinon les emojis 💰 ⏱ 🌿 et le point median · sont casses sur Windows,
+# car PowerShell ecrit par defaut dans la codepage de la console, pas en UTF-8).
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+try { [Console]::InputEncoding  = [System.Text.Encoding]::UTF8 } catch {}
+
+# Lire le JSON sur stdin en UTF-8 (gere les chemins/branches accentues)
+$raw = ''
+try {
+  $sr = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8)
+  $raw = $sr.ReadToEnd()
+} catch { $raw = [Console]::In.ReadToEnd() }
 try { $j = $raw | ConvertFrom-Json } catch { $j = $null }
 
 # --- Couleurs ANSI -----------------------------------------------------------
@@ -189,7 +200,16 @@ if ($null -ne $rl7p -and "$rl7p" -ne '') {
   $p2 += $seg
 }
 
-# --- Sortie ------------------------------------------------------------------
+# --- Sortie en UTF-8 brut (independant de la codepage de la console Windows) -
 $out = $l1
 if ($p2.Count -gt 0) { $out += "`n" + ($p2 -join $SEP) }
-[Console]::Out.Write($out + "`n")
+$out += "`n"
+try {
+  $utf8 = New-Object System.Text.UTF8Encoding $false   # UTF-8 sans BOM
+  $bytes = $utf8.GetBytes($out)
+  $stdout = [Console]::OpenStandardOutput()
+  $stdout.Write($bytes, 0, $bytes.Length)
+  $stdout.Flush()
+} catch {
+  [Console]::Out.Write($out)
+}
