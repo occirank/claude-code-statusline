@@ -5,6 +5,10 @@ Une status line maison pour **Claude Code CLI**, en texte coloré sur 2 lignes, 
 - **Ligne 1** : `user@host:dossier | modèle·effort | 🌿 branche@worktree ●fichiers +ajouts/-suppr | PR#n`
 - **Ligne 2** : barre de contexte colorée + tokens · 💰 coût session · ⏱ timer temps réel · Δ lignes éditées · quotas 5h / 7j avec compte à rebours
 
+![Aperçu du rendu de la status line](preview.svg)
+
+<sub>Version texte (mêmes données) :</sub>
+
 ```
 jeremy@host:mon-projet | Opus 4.8·high | 🌿 main ●2 +2/-1
 ctx ####...... 42% (85k/200k) | 💰 $1.23 | ⏱ 14m5s | Δ +128/-17 | 5h 34%·2h00m | 7j 12%·72h00m
