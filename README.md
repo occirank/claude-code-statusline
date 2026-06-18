@@ -80,6 +80,27 @@ mkdir -p ~/.claude && curl -fsSL https://raw.githubusercontent.com/occirank/clau
 
 ## Installation — version PowerShell (Windows natif)
 
+### Option rapide : one-liner
+
+Dans une fenêtre **PowerShell**, une seule commande crée le dossier et télécharge le script :
+
+```powershell
+$d="$HOME\.claude"; New-Item -ItemType Directory -Force -Path $d | Out-Null; Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/occirank/claude-code-statusline/main/statusline.ps1 -OutFile "$d\statusline.ps1"
+```
+
+**Ce que fait cette commande, étape par étape :**
+
+- `$d="$HOME\.claude"` : mémorise le chemin du dossier de configuration de Claude Code (`$HOME` = ton profil utilisateur, ex. `C:\Users\TonNom`).
+- `New-Item -ItemType Directory -Force -Path $d | Out-Null` : crée ce dossier s'il n'existe pas (`-Force` = aucune erreur s'il existe déjà) ; `| Out-Null` masque l'affichage.
+- `Invoke-WebRequest -UseBasicParsing <url> -OutFile "$d\statusline.ps1"` : télécharge le script depuis le « raw » GitHub vers le bon emplacement. `-UseBasicParsing` assure la compatibilité avec PowerShell 5.1.
+- Le `;` sépare les commandes exécutées l'une après l'autre.
+
+> Pas de `chmod` sous Windows : PowerShell exécute le script via `-File`. Il te reste ensuite à ajouter le bloc `statusLine` (étape 2 ci-dessous) dans ton `settings.json`, puis à relancer Claude Code.
+
+> Astuce : sous PowerShell, `curl` est en réalité un alias d'`Invoke-WebRequest` (ce n'est pas le vrai `curl`) ; on utilise donc `Invoke-WebRequest` explicitement pour éviter toute ambiguïté.
+
+### Option manuelle
+
 1. Copie `statusline.ps1` dans `%USERPROFILE%\.claude\statusline.ps1`.
 
 2. Ajoute ce bloc dans `%USERPROFILE%\.claude\settings.json`, en remplaçant `<TOI>` par ton nom d'utilisateur Windows et en utilisant le chemin **absolu** (l'expansion de `~` n'est pas garantie sur Windows) :
