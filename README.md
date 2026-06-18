@@ -38,6 +38,27 @@ Compatible macOS et Linux (le cache git utilise `stat -f` ou `stat -c` selon l'O
 
 ## Installation — version Bash (macOS / Linux / WSL / Git Bash)
 
+### Option rapide : one-liner
+
+Une seule commande télécharge le script au bon endroit et le rend exécutable :
+
+```bash
+mkdir -p ~/.claude && curl -fsSL https://raw.githubusercontent.com/occirank/claude-code-statusline/main/statusline.sh -o ~/.claude/statusline.sh && chmod +x ~/.claude/statusline.sh
+```
+
+**Ce que fait cette commande, étape par étape :**
+
+- `mkdir -p ~/.claude` : crée le dossier de configuration de Claude Code s'il n'existe pas déjà (`-p` = aucune erreur s'il existe).
+- `curl -fsSL <url> -o ~/.claude/statusline.sh` : télécharge le script depuis GitHub (le « raw », c'est-à-dire le fichier brut) vers le bon emplacement. Les options : `-f` échoue proprement si le serveur renvoie une erreur, `-s` rend `curl` silencieux, `-S` réaffiche quand même les messages d'erreur, `-L` suit les redirections.
+- `chmod +x ...` : rend le script exécutable.
+- Les `&&` enchaînent les commandes : chacune ne s'exécute que si la précédente a réussi (si le téléchargement échoue, on ne lance pas `chmod`).
+
+> Ce one-liner installe **seulement le script**. Il te reste ensuite à ajouter le bloc `statusLine` (étape 2 ci-dessous) dans ton `settings.json`, puis à relancer Claude Code.
+
+> Bonne pratique : ne lance jamais une commande `curl ... | bash` sans regarder ce qu'elle fait. Ici, le script est simplement téléchargé dans un fichier (jamais exécuté directement depuis le réseau) ; tu peux l'ouvrir et l'inspecter avant de t'en servir.
+
+### Option manuelle (depuis le dépôt cloné)
+
 1. Copie le script et rends-le exécutable :
    ```bash
    mkdir -p ~/.claude
