@@ -34,6 +34,7 @@ $DOT   = [char]0x00B7                         # ·
 $DOTF  = [char]0x25CF                         # ●
 $CLOCK = [char]0x23F1                         # ⏱
 $DELTA = [char]0x0394                         # Δ
+$DISK  = [char]::ConvertFromUtf32(0x1F4BE)    # 💾
 
 # --- Helpers -----------------------------------------------------------------
 function ToInt($v) {
@@ -50,6 +51,13 @@ function FmtK($v) {
   if ($n -ge 1000000) { '{0}M' -f [math]::Round($n/1000000) }
   elseif ($n -ge 1000) { '{0}k' -f [math]::Round($n/1000) }
   else { "$n" }
+}
+function FmtSize($kb) {   # entree en Ko -> K / M / G
+  $n = ToInt $kb; if ($null -eq $n) { return '' }
+  $inv = [System.Globalization.CultureInfo]::InvariantCulture
+  if ($n -ge 1048576) { ($n/1048576).ToString('0.0',$inv) + 'G' }
+  elseif ($n -ge 1024) { [math]::Round($n/1024).ToString($inv) + 'M' }
+  else { "${n}K" }
 }
 function FmtTtl($target) {
   $t = ToInt $target; if ($null -eq $t) { return '' }
@@ -116,6 +124,37 @@ if ($hasGit) {
   }
 }
 
+# --- Espace disque du projet (calcul detache, non bloquant + cache 60s) ------
+# Affiche la derniere taille connue ; recalcule via un process cache (hidden)
+# qui ecrit le cache, sans bloquer le rendu. Cle de cache = hash MD5 du chemin
+# (GetHashCode n'est pas stable entre process sur PowerShell 7).
+$proj = if ($j.workspace.project_dir) { $j.workspace.project_dir } else { $cwd }
+$disk = $null
+if ($proj -and (Test-Path -LiteralPath $proj)) {
+  $md5 = [System.Security.Cryptography.MD5]::Create()
+  $key = ([BitConverter]::ToString($md5.ComputeHash([Text.Encoding]::UTF8.GetBytes("$proj"))) -replace '-','').Substring(0,12)
+  $sizeCache = Join-Path $cacheDir "claude-statusline-size-$key"
+  $sizeLock  = "$sizeCache.lock"
+  if (Test-Path $sizeCache) { $disk = (Get-Content $sizeCache -TotalCount 1) }
+  $need = $true
+  if (Test-Path $sizeCache) {
+    if ((New-TimeSpan -Start (Get-Item $sizeCache).LastWriteTime -End (Get-Date)).TotalSeconds -lt 60) { $need = $false }
+  }
+  if ($need) {
+    $lockFresh = $false
+    if (Test-Path $sizeLock) {
+      if ((New-TimeSpan -Start (Get-Item $sizeLock).LastWriteTime -End (Get-Date)).TotalSeconds -lt 300) { $lockFresh = $true }
+    }
+    if (-not $lockFresh) {
+      New-Item -ItemType File -Force -Path $sizeLock | Out-Null
+      $pp = "$proj".Replace("'","''"); $sc = "$sizeCache".Replace("'","''"); $lk = "$sizeLock".Replace("'","''")
+      $calc = "try { `$s = (Get-ChildItem -LiteralPath '$pp' -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object -Sum -Property Length).Sum; if (`$null -eq `$s) { `$s = 0 }; ([long][math]::Round(`$s / 1024)).ToString() | Set-Content -LiteralPath '$sc' -Encoding ascii } finally { Remove-Item -LiteralPath '$lk' -ErrorAction SilentlyContinue }"
+      $exe = (Get-Process -Id $PID).Path; if (-not $exe) { $exe = 'powershell' }
+      Start-Process -FilePath $exe -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-Command', $calc | Out-Null
+    }
+  }
+}
+
 # =============================================================================
 # LIGNE 1 : texte colore, sans fond, separateur | (identique a la ligne 2)
 # =============================================================================
@@ -167,6 +206,11 @@ if ($null -ne $usedPct -and "$usedPct" -ne '') {
 if ($null -ne $cost -and "$cost" -ne '') {
   try { $cs = ([double]("$cost")).ToString('0.00',[System.Globalization.CultureInfo]::InvariantCulture) } catch { $cs = "$cost" }
   $p2 += ($GREEN + $MONEY + ' $' + $cs + $RESET)
+}
+# espace disque occupe par le projet
+if ($disk) {
+  $sz = FmtSize $disk
+  if ($sz) { $p2 += "$GREY$DISK $sz$RESET" }
 }
 # timer temps reel (refreshInterval=1 dans settings.json)
 if ($null -ne $durMs -and "$durMs" -ne '') {

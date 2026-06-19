@@ -40,7 +40,8 @@ $(printf '%s' "$input" | jq -r '[
   .worktree.name, .workspace.git_worktree, .worktree.branch,
   .pr.number, .pr.review_state,
   .rate_limits.five_hour.used_percentage, .rate_limits.five_hour.resets_at,
-  .rate_limits.seven_day.used_percentage, .rate_limits.seven_day.resets_at
+  .rate_limits.seven_day.used_percentage, .rate_limits.seven_day.resets_at,
+  .workspace.project_dir
 ] | map(if . == null then "" else tostring end) | .[]' 2>/dev/null)
 EOF
 
@@ -51,6 +52,7 @@ cost=${F[8]};     dur_ms=${F[9]};      added=${F[10]};   removed=${F[11]}
 wt_name=${F[12]}; wt_gw=${F[13]};      wt_branch=${F[14]}
 pr_num=${F[15]};  pr_state=${F[16]}
 rl5_pct=${F[17]}; rl5_reset=${F[18]};  rl7_pct=${F[19]};  rl7_reset=${F[20]}
+project_dir=${F[21]}
 
 [ -z "$cwd" ] && cwd="$cwd_alt"
 [ -z "$cwd" ] && cwd=$(pwd)
@@ -90,6 +92,15 @@ repeat() { local n=$1 c=$2 i=0 out=""; while [ "$i" -lt "$n" ]; do out="$out$c";
 is_pos() { local v=${1%.*}; case "$v" in ''|*[!0-9]*) return 1 ;; *) [ "$v" -gt 0 ] ;; esac; }
 # mtime d'un fichier en epoch — compatible macOS/BSD (stat -f) ET Linux/GNU (stat -c)
 file_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+# Formate une taille (entree en Ko) en K / M / G
+fmt_size() {
+  local kb=${1%.*}; case "$kb" in ''|*[!0-9]*) return ;; esac
+  if   [ "$kb" -ge 1048576 ]; then awk "BEGIN{printf \"%.1fG\", $kb/1048576}"
+  elif [ "$kb" -ge 1024 ];    then awk "BEGIN{printf \"%.0fM\", $kb/1024}"
+  else printf '%dK' "$kb"; fi
+}
+
+now=$(date +%s)
 
 # --- Git avec cache par session (evite git status a chaque tick) -----------
 CACHE_TTL=3
@@ -112,6 +123,29 @@ if git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 $(git -C "$cwd" diff --numstat HEAD 2>/dev/null | awk '{a+=$1; d+=$2} END{printf "%d %d", a+0, d+0}')
 NUM
     printf '%s\n%s\n%s\n%s\n' "$g_branch" "$g_files" "$g_add" "$g_del" > "$cache_file" 2>/dev/null
+  fi
+fi
+
+# --- Espace disque du projet (du en arriere-plan, non bloquant + cache) ------
+# Affiche la derniere taille connue ; recalcule en tache de fond (TTL 60s) sans
+# jamais bloquer le rendu. Verrou anti-stampede pour ne pas lancer 'du' en boucle.
+SIZE_TTL=60
+proj="${project_dir:-$cwd}"
+disk=""
+if [ -n "$proj" ] && [ -d "$proj" ]; then
+  key=$(printf '%s' "$proj" | cksum | awk '{print $1}')
+  size_cache="${TMPDIR:-/tmp}/claude-statusline-size-${key}"
+  size_lock="${size_cache}.lock"
+  [ -f "$size_cache" ] && disk=$(sed -n '1p' "$size_cache" 2>/dev/null)
+  need=0
+  if [ ! -f "$size_cache" ]; then need=1
+  elif [ $(( now - $(file_mtime "$size_cache") )) -ge "$SIZE_TTL" ]; then need=1; fi
+  if [ "$need" = "1" ]; then
+    if [ ! -f "$size_lock" ] || [ $(( now - $(file_mtime "$size_lock") )) -gt 300 ]; then
+      : > "$size_lock"
+      ( du -sk "$proj" 2>/dev/null | awk '{print $1}' > "${size_cache}.tmp" 2>/dev/null \
+        && mv "${size_cache}.tmp" "$size_cache" 2>/dev/null; rm -f "$size_lock" 2>/dev/null ) >/dev/null 2>&1 &
+    fi
   fi
 fi
 
@@ -173,6 +207,9 @@ fi
 if [ -n "$cost" ]; then
   add2 "$(printf "${GREEN}\xf0\x9f\x92\xb0 \$%.2f${RESET}" "$cost" 2>/dev/null)"
 fi
+
+# espace disque occupe par le projet (💾)
+[ -n "$disk" ] && add2 "${GREY}\xf0\x9f\x92\xbe $(fmt_size "$disk")${RESET}"
 
 # duree de session — timer TEMPS REEL (s'egrene a la seconde si refreshInterval=1).
 # Ancre le debut sur la duree native au 1er rendu, puis l'horloge avance ; on

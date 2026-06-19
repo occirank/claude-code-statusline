@@ -3,7 +3,7 @@
 Une status line maison pour **Claude Code CLI**, en texte coloré sur 2 lignes, **sans police Nerd Font**.
 
 - **Ligne 1** : `user@host:dossier | modèle·effort | 🌿 branche@worktree ●fichiers +ajouts/-suppr | PR#n`
-- **Ligne 2** : barre de contexte colorée + tokens · 💰 coût session · ⏱ timer temps réel · Δ lignes éditées · quotas 5h / 7j avec compte à rebours
+- **Ligne 2** : barre de contexte colorée + tokens · 💰 coût session · 💾 espace disque du projet · ⏱ timer temps réel · Δ lignes éditées · quotas 5h / 7j avec compte à rebours
 
 ![Aperçu du rendu de la status line](preview.svg)
 
@@ -11,7 +11,7 @@ Une status line maison pour **Claude Code CLI**, en texte coloré sur 2 lignes, 
 
 ```
 jeremy@host:mon-projet | Opus 4.8·high | 🌿 main ●2 +2/-1
-ctx ####...... 42% (85k/200k) | 💰 $1.23 | ⏱ 14m5s | Δ +128/-17 | 5h 34%·2h00m | 7j 12%·72h00m
+ctx ####...... 42% (85k/200k) | 💰 $1.23 | 💾 12M | ⏱ 14m5s | Δ +128/-17 | 5h 34%·2h00m | 7j 12%·72h00m
 ```
 
 Couleurs ANSI + emojis/symboles Unicode standard. Tout est calculé **en local** : aucune donnée envoyée, aucun token consommé.
@@ -130,13 +130,15 @@ N'ajoute **que** le bloc `statusLine` dans **ton** `settings.json`. Ne copie **j
 - **Timer temps réel** : `refreshInterval` (secondes). `1` = à la seconde ; `5` = toutes les 5 s ; retire la clé pour ne rafraîchir qu'aux messages.
 - **Seuils de couleur** (contexte et quotas) : fonction `pct_color` (`.sh`) / `PctColor` (`.ps1`) — vert < 70, jaune 70-89, rouge ≥ 90.
 - **Durée du cache git** : `CACHE_TTL` (`.sh`) / le `-lt 3` dans le bloc git (`.ps1`).
-- **Retirer un segment** : supprime son bloc conditionnel (ex. `# badge PR`, `# rate limits`).
+- **Fréquence du calcul de taille disque** : `SIZE_TTL` (`.sh`) / le `-lt 60` du bloc disque (`.ps1`), en secondes.
+- **Retirer un segment** : supprime son bloc conditionnel (ex. `# badge PR`, `# rate limits`, `# espace disque`).
 
 ## Bon à savoir
 
 - Les segments `5h` / `7j` (quotas d'abonnement) n'apparaissent que pour les comptes **Pro / Max**, après le 1er appel API.
 - Le cache git et le timer écrivent de petits fichiers dans le dossier temporaire (`/tmp` ou `%TEMP%`), nettoyés au redémarrage.
 - Champs lus depuis le JSON fourni par Claude Code sur stdin (modèle, contexte, coût, rate limits, worktree, PR, etc.).
+- Le segment 💾 affiche la taille du dossier du projet (`workspace.project_dir`), `.git` et dépendances compris. Elle est calculée **en arrière-plan** (cache 60 s) pour ne jamais bloquer la barre : elle apparaît au tick qui suit le premier calcul. Sous Windows, ce calcul lance brièvement un process PowerShell masqué.
 
 ## Dépannage (Windows)
 
